@@ -7,6 +7,7 @@ import { MessageList, MessageInput } from "./Messages.jsx";
 import { useTabRevealSpoilers } from "./markdown.jsx";
 import SettingsModal from "./SettingsModal.jsx";
 import AdminPanel from "./AdminPanel.jsx";
+import { IconBack, IconGrid, IconImage, IconPin } from "./icons.jsx";
 
 /* ============================================================
    실시간 구독 헬퍼
@@ -123,6 +124,18 @@ export default function ChatApp({ user }) {
     try {
       await sbUpdate("settings", "id=eq.1", { server_name: name });
       showToast("서버 이름이 변경되었습니다");
+    } catch (e) {
+      showToast("변경하지 못했습니다");
+    }
+  }
+
+  async function renameChannel(channelId, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, name: trimmed } : c)));
+    try {
+      await sbUpdate("channels", `id=eq.${channelId}`, { name: trimmed });
+      showToast("스페이스 이름이 변경되었습니다");
     } catch (e) {
       showToast("변경하지 못했습니다");
     }
@@ -421,6 +434,29 @@ export default function ChatApp({ user }) {
         avatarUrl={myAvatarUrl}
         color={myColor || avatarColor(currentUser)}
         schoolLabel={null}
+        channels={channels}
+        messages={messages}
+        onOpenSettings={() => setShowSettings(true)}
+        onGoHome={() => setCurrentView("home")}
+        onGoDocs={() => setCurrentView("docs")}
+        onGoGame={() => setCurrentView("game")}
+        onSearchResults={(r) => {
+          if (r.type === "channel") {
+            setActiveChannel(r.channelId);
+            setCurrentView("chat");
+          } else if (r.type === "message") {
+            setActiveChannel(r.channelId);
+            setCurrentView("chat");
+            setTimeout(() => {
+              const el = document.getElementById(`v2msg-${r.messageId}`);
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.style.background = C.bgActive;
+                setTimeout(() => (el.style.background = "transparent"), 1400);
+              }
+            }, 200);
+          }
+        }}
       />
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
@@ -430,8 +466,12 @@ export default function ChatApp({ user }) {
         channels={channels}
         activeChannel={activeChannel}
         currentView={currentView}
-        onSelectChannel={setActiveChannel}
+        onSelectChannel={(id) => {
+          setActiveChannel(id);
+          setCurrentView("chat");
+        }}
         onChangeView={setCurrentView}
+        onRenameChannel={renameChannel}
         onlineUsers={onlineUsers}
         currentUser={currentUser}
         displayName={displayName}
@@ -442,9 +482,15 @@ export default function ChatApp({ user }) {
         myColor={myColor || avatarColor(currentUser)}
       />
 
+      {currentView === "home" && <HomeView displayName={displayName} currentUser={currentUser} channels={channels} onSelectChannel={(id) => { setActiveChannel(id); setCurrentView("chat"); }} />}
+
       {currentView === "chat" && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
-          <ChannelHeader channelName={channelName} />
+          <ChannelHeader
+            channelName={channelName}
+            onBack={() => setCurrentView("home")}
+            onOpenGallery={() => setCurrentView("gallery")}
+          />
 
           <MessageList
             messages={messages}
@@ -516,6 +562,15 @@ export default function ChatApp({ user }) {
         </div>
       )}
 
+      {currentView === "gallery" && (
+        <GalleryView
+          messages={messages}
+          channelName={channelName}
+          onBack={() => setCurrentView("chat")}
+          displayName={displayName}
+        />
+      )}
+
       {currentView === "docs" && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.textFaint }}>
           문서 기능은 다음 단계에서 추가됩니다.
@@ -574,115 +629,111 @@ export default function ChatApp({ user }) {
    채널(스페이스) 상단바 — 실제 Google Chat 스크린샷 구조 그대로
    뒤로가기 · 채널 아이콘 · 이름+드롭다운 · 검색 · 사진첩  |  폴더 · 체크 · 사다리꼴 · 핀
    ============================================================ */
-function ChannelHeader({ channelName }) {
+function ChannelHeader({ channelName, onBack, onOpenGallery }) {
   return (
-    <div
-      style={{
-        height: 56,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        borderBottom: `1px solid ${C.border}`,
-        flexShrink: 0,
-      }}
-    >
+    <div style={{ height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <HeaderIconBtn title="뒤로가기">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
+        <HeaderIconBtn title="뒤로가기" onClick={onBack}>
+          <IconBack style={{ color: "#5f6368" }} />
         </HeaderIconBtn>
 
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 7,
-            background: "#e8eaed",
-            color: "#5f6368",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="1" y="1" width="6" height="6" rx="1.5" />
-            <rect x="9" y="1" width="6" height="6" rx="1.5" />
-            <rect x="1" y="9" width="6" height="6" rx="1.5" />
-            <rect x="9" y="9" width="6" height="6" rx="1.5" />
-          </svg>
+        <div style={{ width: 30, height: 30, borderRadius: 7, background: "#e8eaed", color: "#5f6368", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <IconGrid width={15} height={15} />
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, cursor: "pointer" }}>
-          <span style={{ fontSize: 16, fontWeight: 500, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {channelName}
-          </span>
-          <span style={{ fontSize: 11, color: C.textFaint }}>▾</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+          <span style={{ fontSize: 16, fontWeight: 500, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{channelName}</span>
         </div>
 
-        <HeaderIconBtn title="채널 내 검색">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2">
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </HeaderIconBtn>
-        <HeaderIconBtn title="사진첩">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
+        <HeaderIconBtn title="사진첩" onClick={onOpenGallery}>
+          <IconImage style={{ color: "#5f6368" }} />
         </HeaderIconBtn>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-        <HeaderIconBtn title="파일">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </HeaderIconBtn>
-        <HeaderIconBtn title="할일">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 11 12 14 22 4" />
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-          </svg>
-        </HeaderIconBtn>
-        <HeaderIconBtn title="더보기">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 21V8a2 2 0 0 1 2-2h1V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2h1a2 2 0 0 1 2 2v13" />
-            <path d="M9 21v-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4" />
-          </svg>
-        </HeaderIconBtn>
         <HeaderIconBtn title="고정">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="17" x2="12" y2="22" />
-            <path d="M5 17h14l-1.4-1.4a2 2 0 0 1-.6-1.4V9a5 5 0 0 0-10 0v5.2a2 2 0 0 1-.6 1.4z" />
-          </svg>
+          <IconPin style={{ color: "#5f6368" }} />
         </HeaderIconBtn>
       </div>
     </div>
   );
 }
 
-function HeaderIconBtn({ title, children }) {
+/* ============================================================
+   홈 화면 — 뒤로가기를 누르면 여기로. 스페이스 요약을 보여준다.
+   ============================================================ */
+function HomeView({ displayName, currentUser, channels, onSelectChannel }) {
+  return (
+    <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px" }}>
+      <div style={{ fontSize: 22, fontWeight: 500, color: C.text, marginBottom: 4 }}>안녕하세요, {displayName(currentUser)}님</div>
+      <div style={{ fontSize: 14, color: C.textFaint, marginBottom: 28 }}>이동할 스페이스를 선택하세요</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12, maxWidth: 760 }}>
+        {channels.map((c) => (
+          <div
+            key={c.id}
+            onClick={() => onSelectChannel(c.id)}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: 16, borderRadius: 12, border: `1px solid ${C.border}`, cursor: "pointer" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e8eaed", color: "#5f6368", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <IconGrid width={18} height={18} />
+            </div>
+            <span style={{ fontSize: 14.5, fontWeight: 500, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   사진첩 — 채널에 올라온 이미지를 그리드로
+   ============================================================ */
+function GalleryView({ messages, channelName, onBack, displayName }) {
+  const images = messages.filter((m) => m.image_url);
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ height: 56, display: "flex", alignItems: "center", gap: 10, padding: "0 20px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <HeaderIconBtn title="뒤로가기" onClick={onBack}>
+          <IconBack style={{ color: "#5f6368" }} />
+        </HeaderIconBtn>
+        <span style={{ fontSize: 16, fontWeight: 500, color: C.text }}>{channelName} · 사진</span>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+        {images.length === 0 ? (
+          <div style={{ color: C.textFaint, fontSize: 14, textAlign: "center", marginTop: 60 }}>아직 공유된 사진이 없습니다.</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+            {images.map((m) => (
+              <div key={m.id} style={{ position: "relative", aspectRatio: "1", borderRadius: 10, overflow: "hidden", background: C.bgRail }}>
+                <img
+                  src={m.image_url}
+                  alt="공유된 사진"
+                  onClick={() => window.open(m.image_url, "_blank")}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", cursor: "pointer", filter: m.image_spoiler ? "blur(16px)" : "none" }}
+                />
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.6))", padding: "16px 8px 6px", fontSize: 11, color: "#fff" }}>
+                  {displayName(m.author)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HeaderIconBtn({ title, children, onClick }) {
   return (
     <button
+      onClick={onClick}
       title={title}
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: "50%",
-        border: "none",
-        background: "transparent",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        flexShrink: 0,
-      }}
+      style={{ width: 34, height: 34, borderRadius: "50%", border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
       onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
