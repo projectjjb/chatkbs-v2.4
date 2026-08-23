@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { sbSelect, sbUpdate, sbDelete, hashPassword } from "../AuthGate.jsx";
 import { C, Avatar, initials, avatarColor, validateImageFile, compressImage, uploadImage } from "./helpers.jsx";
+import { IconCamera, IconTrash } from "./icons.jsx";
 
 const PALETTE = ["#1a73e8", "#d93025", "#1e8e3e", "#f9ab00", "#9334e6", "#e37400", "#12b5cb", "#e52592", "#795548", "#5f6368"];
 
@@ -153,9 +154,10 @@ function ProfileTab({ currentUser, nickname, avatarUrl, color, isAdmin, userId, 
         <button
           onClick={() => fileRef.current?.click()}
           disabled={uploadingAvatar}
-          style={{ flex: 1, padding: "9px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "#fff", color: C.text, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: C.font }}
+          style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "9px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "#fff", color: C.text, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: C.font }}
         >
-          {uploadingAvatar ? "업로드 중..." : "📷 사진 올리기"}
+          {!uploadingAvatar && <IconCamera width={15} height={15} />}
+          {uploadingAvatar ? "업로드 중..." : "사진 올리기"}
         </button>
         {pickedAvatar && (
           <button
@@ -226,7 +228,9 @@ function ProfileTab({ currentUser, nickname, avatarUrl, color, isAdmin, userId, 
             opacity: deleting ? 0.6 : 1,
           }}
         >
-          <span style={{ fontSize: 20 }}>🗑️</span>
+          <span style={{ color: C.red, display: "flex" }}>
+            <IconTrash width={19} height={19} />
+          </span>
           <div>
             <div style={{ color: C.red, fontWeight: 500, fontSize: 14 }}>{deleting ? "삭제 중..." : "내 계정 삭제"}</div>
             <div style={{ color: C.textFaint, fontSize: 12 }}>이 비밀번호로 다시 접속할 수 없게 됩니다</div>
