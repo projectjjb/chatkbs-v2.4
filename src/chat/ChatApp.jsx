@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { sbSelect, sbInsert, sbUpdate, sbDelete, SUPABASE_URL, SUPABASE_ANON_KEY } from "../AuthGate.jsx";
 import { C, Avatar, formatTime, avatarColor, initials, isOnline, validateImageFile, compressImage, uploadImage } from "./helpers.jsx";
 import { ChannelSidebar } from "./Sidebar.jsx";
+import TopBar from "./TopBar.jsx";
 import { MessageList, MessageInput } from "./Messages.jsx";
 import { useTabRevealSpoilers } from "./markdown.jsx";
 import SettingsModal from "./SettingsModal.jsx";
@@ -384,7 +385,7 @@ export default function ChatApp({ user }) {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", width: "100%", background: C.bg, fontFamily: C.font, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100%", background: C.bg, fontFamily: C.font, overflow: "hidden" }}>
       <style>{`
         @keyframes v2ReactionPop {
           0%   { transform: scale(0.4); opacity: 0; }
@@ -414,6 +415,15 @@ export default function ChatApp({ user }) {
         button, [data-hoverable] { transition: background-color 0.12s ease; }
       `}</style>
 
+      <TopBar
+        currentUser={currentUser}
+        displayName={displayName}
+        avatarUrl={myAvatarUrl}
+        color={myColor || avatarColor(currentUser)}
+        schoolLabel={null}
+      />
+
+      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
       <ChannelSidebar
         serverName={serverName}
         onEditServerName={saveServerName}
@@ -434,10 +444,7 @@ export default function ChatApp({ user }) {
 
       {currentView === "chat" && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
-          <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-            <span style={{ color: C.textFaint, fontSize: 19, marginRight: 6 }}>#</span>
-            <span style={{ fontSize: 16, fontWeight: 500, color: C.text }}>{channelName}</span>
-          </div>
+          <ChannelHeader channelName={channelName} />
 
           <MessageList
             messages={messages}
@@ -519,6 +526,7 @@ export default function ChatApp({ user }) {
           게임 기능은 다음 단계에서 추가됩니다.
         </div>
       )}
+      </div>
 
       {showSettings && (
         <SettingsModal
@@ -559,5 +567,126 @@ export default function ChatApp({ user }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ============================================================
+   채널(스페이스) 상단바 — 실제 Google Chat 스크린샷 구조 그대로
+   뒤로가기 · 채널 아이콘 · 이름+드롭다운 · 검색 · 사진첩  |  폴더 · 체크 · 사다리꼴 · 핀
+   ============================================================ */
+function ChannelHeader({ channelName }) {
+  return (
+    <div
+      style={{
+        height: 56,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px",
+        borderBottom: `1px solid ${C.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <HeaderIconBtn title="뒤로가기">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </HeaderIconBtn>
+
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 7,
+            background: "#e8eaed",
+            color: "#5f6368",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="1" y="1" width="6" height="6" rx="1.5" />
+            <rect x="9" y="1" width="6" height="6" rx="1.5" />
+            <rect x="1" y="9" width="6" height="6" rx="1.5" />
+            <rect x="9" y="9" width="6" height="6" rx="1.5" />
+          </svg>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, cursor: "pointer" }}>
+          <span style={{ fontSize: 16, fontWeight: 500, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {channelName}
+          </span>
+          <span style={{ fontSize: 11, color: C.textFaint }}>▾</span>
+        </div>
+
+        <HeaderIconBtn title="채널 내 검색">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </HeaderIconBtn>
+        <HeaderIconBtn title="사진첩">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </HeaderIconBtn>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        <HeaderIconBtn title="파일">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+        </HeaderIconBtn>
+        <HeaderIconBtn title="할일">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+        </HeaderIconBtn>
+        <HeaderIconBtn title="더보기">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 21V8a2 2 0 0 1 2-2h1V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2h1a2 2 0 0 1 2 2v13" />
+            <path d="M9 21v-4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4" />
+          </svg>
+        </HeaderIconBtn>
+        <HeaderIconBtn title="고정">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="17" x2="12" y2="22" />
+            <path d="M5 17h14l-1.4-1.4a2 2 0 0 1-.6-1.4V9a5 5 0 0 0-10 0v5.2a2 2 0 0 1-.6 1.4z" />
+          </svg>
+        </HeaderIconBtn>
+      </div>
+    </div>
+  );
+}
+
+function HeaderIconBtn({ title, children }) {
+  return (
+    <button
+      title={title}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: "50%",
+        border: "none",
+        background: "transparent",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      {children}
+    </button>
   );
 }
