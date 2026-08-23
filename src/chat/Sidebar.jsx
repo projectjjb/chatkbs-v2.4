@@ -123,7 +123,7 @@ export function ChannelSidebar({
         )}
       </div>
 
-      {/* 카드 버튼 - 관리자는 관리자 패널, 아니면 설정 바로가기 */}
+      {/* 알약 모양 카드 버튼 (사진의 "+새 채팅" 자리) */}
       <div style={{ padding: "6px 14px 14px" }}>
         <button
           onClick={isAdmin ? onOpenAdmin : onOpenSettings}
@@ -150,10 +150,17 @@ export function ChannelSidebar({
         </button>
       </div>
 
+      {/* 바로가기 (사진 구조: 홈/멘션/별표표시함에 해당하는 자리) */}
+      <div style={{ padding: "2px 8px 4px" }}>
+        <SectionHeader label="바로가기" />
+        <ShortcutRow icon="🏠" label="홈" active onClick={() => onChangeView("chat")} />
+      </div>
+
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}>
-        {/* 온라인/오프라인 사용자 목록 */}
+        {/* 온라인/오프라인 사용자 목록 (사진의 "채팅 메시지" DM 목록에 해당) */}
         {onlineUsers.length > 0 && (
           <>
+            <SectionHeader label="채팅 메시지" />
             {online.map((u) => (
               <UserRow key={u.name} u={u} />
             ))}
@@ -235,6 +242,32 @@ function SectionHeader({ label }) {
     <div style={{ display: "flex", alignItems: "center", gap: 4, color: C.textSub, fontSize: 13, fontWeight: 500, padding: "10px 10px 4px" }}>
       <span style={{ fontSize: 10, color: C.textFaint }}>▾</span>
       {label}
+    </div>
+  );
+}
+
+function ShortcutRow({ icon, label, active, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "8px 10px",
+        borderRadius: 8,
+        cursor: "pointer",
+        background: active ? C.bgActive : "transparent",
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = C.bgHover;
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span style={{ fontSize: 17, width: 20, textAlign: "center" }}>{icon}</span>
+      <span style={{ fontSize: 14, color: active ? C.blueDark : C.text, fontWeight: active ? 600 : 400 }}>{label}</span>
     </div>
   );
 }
