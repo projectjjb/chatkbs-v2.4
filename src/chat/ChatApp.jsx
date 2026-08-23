@@ -55,6 +55,13 @@ export default function ChatApp({ user }) {
   const [pendingSpoiler, setPendingSpoiler] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [connError, setConnError] = useState("");
+  const [toast, setToast] = useState(null); // { text }
+
+  function showToast(text, duration = 2200) {
+    setToast({ text, key: Date.now() });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(null), duration);
+  }
 
   const [serverName, setServerName] = useState("Chat");
   const [profileMap, setProfileMap] = useState({}); // { name: { nickname, avatar_color, avatar_url, last_seen } }
@@ -114,7 +121,10 @@ export default function ChatApp({ user }) {
     setServerName(name);
     try {
       await sbUpdate("settings", "id=eq.1", { server_name: name });
-    } catch (e) {}
+      showToast("서버 이름이 변경되었습니다");
+    } catch (e) {
+      showToast("변경하지 못했습니다");
+    }
   }
 
   /* ---------------- 프로필/온라인 상태 ---------------- */
@@ -323,8 +333,10 @@ export default function ChatApp({ user }) {
     setMessages((prev) => prev.filter((m) => m.id !== msg.id));
     try {
       await sbDelete("messages", `id=eq.${msg.id}`);
+      showToast("메시지가 삭제되었습니다");
     } catch (e) {
       setMessages((prev) => [...prev, msg].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+      showToast("삭제하지 못했습니다");
     }
   }
 
@@ -373,6 +385,35 @@ export default function ChatApp({ user }) {
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100%", background: C.bg, fontFamily: C.font, overflow: "hidden" }}>
+      <style>{`
+        @keyframes v2ReactionPop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          60%  { transform: scale(1.12); opacity: 1; }
+          100% { transform: scale(1); }
+        }
+        .v2-reaction-pop { animation: v2ReactionPop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+
+        @keyframes v2ToolbarIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .v2-toolbar-in { animation: v2ToolbarIn 0.14s ease-out; }
+
+        @keyframes v2MsgIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .v2-msg-in { animation: v2MsgIn 0.18s ease-out; }
+
+        @keyframes v2ToastIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .v2-toast { animation: v2ToastIn 0.2s ease-out; }
+
+        button, [data-hoverable] { transition: background-color 0.12s ease; }
+      `}</style>
+
       <ChannelSidebar
         serverName={serverName}
         onEditServerName={saveServerName}
@@ -493,6 +534,30 @@ export default function ChatApp({ user }) {
       )}
 
       {showAdmin && <AdminPanel currentUserId={user.id} onClose={() => setShowAdmin(false)} />}
+
+      {toast && (
+        <div
+          key={toast.key}
+          className="v2-toast"
+          style={{
+            position: "fixed",
+            left: 316,
+            bottom: 20,
+            background: "#323232",
+            color: "#fff",
+            padding: "12px 18px",
+            borderRadius: 8,
+            fontSize: 13.5,
+            boxShadow: "0 3px 10px rgba(0,0,0,0.3)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 }
