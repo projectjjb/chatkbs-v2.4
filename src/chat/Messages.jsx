@@ -6,7 +6,24 @@ import { IconReply, IconSmile, IconTrash, IconEyeOff, IconBold, IconAttach, Icon
 /* ============================================================
    이모지 선택기
    ============================================================ */
-const EMOJI_CHOICES = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👀", "🤔", "🙌", "✅", "❓"];
+// 호버 툴팁에 "OO님이 [이름] 이모티콘으로 반응함"을 표시하기 위한 한글 이름
+const EMOJI_CHOICES = [
+  { e: "👍", name: "엄지척" },
+  { e: "❤️", name: "빨간색-하트" },
+  { e: "😂", name: "웃겨서-눈물" },
+  { e: "😮", name: "놀람" },
+  { e: "😢", name: "슬픔" },
+  { e: "🔥", name: "불꽃" },
+  { e: "🎉", name: "축하-폭죽" },
+  { e: "👀", name: "쳐다보는-눈" },
+  { e: "🤔", name: "생각" },
+  { e: "🙌", name: "만세" },
+  { e: "✅", name: "체크표시" },
+  { e: "❓", name: "물음표" },
+];
+function emojiName(e) {
+  return EMOJI_CHOICES.find((x) => x.e === e)?.name || e;
+}
 
 export function EmojiPicker({ onPick, onClose, align = "left" }) {
   const ref = useRef(null);
@@ -37,15 +54,16 @@ export function EmojiPicker({ onPick, onClose, align = "left" }) {
         zIndex: 30,
       }}
     >
-      {EMOJI_CHOICES.map((e) => (
+      {EMOJI_CHOICES.map((item) => (
         <button
-          key={e}
-          onClick={() => onPick(e)}
+          key={item.e}
+          onClick={() => onPick(item.e)}
+          title={item.name}
           style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", padding: "6px 8px", borderRadius: 6 }}
           onMouseEnter={(ev) => (ev.currentTarget.style.background = C.bgHover)}
           onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
         >
-          {e}
+          {item.e}
         </button>
       ))}
     </div>
@@ -57,10 +75,31 @@ function summarizeReactions(reactions, currentUser) {
   return Object.entries(reactions)
     .map(([emoji, users]) => ({
       emoji,
+      users: Array.isArray(users) ? users : [],
       count: Array.isArray(users) ? users.length : 0,
       mine: Array.isArray(users) && users.includes(currentUser),
     }))
     .filter((r) => r.count > 0);
+}
+
+// 연속 메시지 뭉치에서 "아바타가 있는 쪽" 모서리를 좁혀 붙어있는 느낌을 낸다.
+// 내 메시지(isMe)는 아바타가 오른쪽에 있으므로 우측 모서리가, 남 메시지는 좌측 모서리가 좁아진다.
+// CSS border-radius 순서: top-left, top-right, bottom-right, bottom-left
+function bubbleRadius(pos, isMe) {
+  const R = 16;
+  const r = 5;
+  if (pos === "solo") return `${R}px`;
+
+  // 뭉치 안에서 좁혀야 할 모서리 자리(위/아래 각각 아바타 쪽 한 곳)를 계산
+  const narrowTop = pos === "middle" || pos === "last"; // 위쪽 인접 모서리를 좁힐지
+  const narrowBottom = pos === "middle" || pos === "first"; // 아래쪽 인접 모서리를 좁힐지
+
+  const topLeft = !isMe && narrowTop ? r : R;
+  const topRight = isMe && narrowTop ? r : R;
+  const bottomRight = isMe && narrowBottom ? r : R;
+  const bottomLeft = !isMe && narrowBottom ? r : R;
+
+  return `${topLeft}px ${topRight}px ${bottomRight}px ${bottomLeft}px`;
 }
 
 /* ============================================================
@@ -77,6 +116,7 @@ export function MessageList({
   onDelete,
   onReply,
   onToggleReaction,
+  onOpenProfile,
   mentionNames,
   scrollRef,
   onScroll,
@@ -94,12 +134,22 @@ export function MessageList({
 
       {messages.map((m, idx) => {
         const prev = messages[idx - 1];
-        const grouped =
-          prev &&
-          prev.author === m.author &&
-          !m.reply_to_author &&
-          !prev.image_url === !m.image_url &&
-          new Date(m.created_at) - new Date(prev.created_at) < 5 * 60 * 1000;
+        const next = messages[idx + 1];
+
+        function sameGroup(a, b) {
+          return a && b && a.author === b.author && !b.reply_to_author && !a.image_url === !b.image_url && new Date(b.created_at) - new Date(a.created_at) < 5 * 60 * 1000;
+        }
+
+        const groupedWithPrev = sameGroup(prev, m);
+        const groupedWithNext = sameGroup(m, next);
+        const grouped = groupedWithPrev; // 아바타/이름 표시 여부는 기존 로직 그대로 유지
+
+        // 말풍선 뭉치에서의 위치: 인접한 쪽 모서리를 좁혀서 "붙어있는 느낌"을 낸다
+        // solo: 사방 둥긂 / first: 아래쪽만 좁힘 / middle: 위아래 둘 다 좁힘 / last: 위쪽만 좁힘
+        let bubblePos = "solo";
+        if (groupedWithPrev && groupedWithNext) bubblePos = "middle";
+        else if (groupedWithNext) bubblePos = "first";
+        else if (groupedWithPrev) bubblePos = "last";
 
         const reactions = summarizeReactions(m.reactions, currentUser);
         const isMe = m.author === currentUser;
@@ -124,6 +174,20 @@ export function MessageList({
               position: "relative",
             }}
           >
+            {m.deleted ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e8eaed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9aa0a6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="7" r="4" />
+                    <path d="M4 21v-1a7 7 0 0 1 14 0v1" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: 13, color: C.textFaint, fontStyle: "italic" }}>
+                  {isMe ? "회원님이" : `${displayName(m.author)}님이`} 메시지를 삭제했습니다.
+                </span>
+              </div>
+            ) : (
+              <>
             {m.reply_to_author && (
               <div
                 onClick={() => {
@@ -157,14 +221,16 @@ export function MessageList({
             <div style={{ display: "flex", gap: 12, flexDirection: isMe ? "row-reverse" : "row" }}>
               <div style={{ width: 36, flexShrink: 0 }}>
                 {!grouped && (
-                  <Avatar
-                    url={userAvatar(m.author)}
-                    color={userColor(m.author)}
-                    label={displayName(m.author)}
-                    size={36}
-                    online={isUserOnline(m.author)}
-                    showStatus
-                  />
+                  <div onClick={() => onOpenProfile?.(m.author)} style={{ cursor: onOpenProfile ? "pointer" : "default", width: 36 }}>
+                    <Avatar
+                      url={userAvatar(m.author)}
+                      color={userColor(m.author)}
+                      label={displayName(m.author)}
+                      size={36}
+                      online={isUserOnline(m.author)}
+                      showStatus
+                    />
+                  </div>
                 )}
                 {grouped && hovered && (
                   <div style={{ color: C.textFaint, fontSize: 10, textAlign: "center", marginTop: 2 }}>{formatTime(m.created_at)}</div>
@@ -174,13 +240,21 @@ export function MessageList({
               <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
                 {!grouped && (
                   <div style={{ marginBottom: 2 }}>
-                    {!isMe && <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>}
+                    {!isMe && (
+                      <span onClick={() => onOpenProfile?.(m.author)} style={{ color: C.text, fontWeight: 600, fontSize: 14.5, cursor: onOpenProfile ? "pointer" : "default" }}>
+                        {displayName(m.author)}
+                      </span>
+                    )}
                     <span style={{ color: C.textFaint, fontSize: 12, marginLeft: isMe ? 0 : 8, marginRight: isMe ? 8 : 0 }}>{formatTime(m.created_at)}</span>
-                    {isMe && <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>}
+                    {isMe && (
+                      <span onClick={() => onOpenProfile?.(m.author)} style={{ color: C.text, fontWeight: 600, fontSize: 14.5, cursor: onOpenProfile ? "pointer" : "default" }}>
+                        {displayName(m.author)}
+                      </span>
+                    )}
                   </div>
                 )}
 
-                {/* 말풍선: 내용 길이에 맞춰 좁게, 최대 폭만 제한 */}
+                {/* 말풍선: 내용 길이에 맞춰 좁게, 연속 메시지는 인접 모서리가 좁아짐 */}
                 {m.text && (
                   <div
                     style={{
@@ -189,7 +263,7 @@ export function MessageList({
                       width: "fit-content",
                       background: isMe ? C.bubbleMe : C.bubbleOther,
                       color: isMe ? C.bubbleMeText : C.bubbleOtherText,
-                      borderRadius: 16,
+                      borderRadius: bubbleRadius(bubblePos, isMe),
                       padding: "8px 14px",
                       fontSize: 14.5,
                       lineHeight: 1.5,
@@ -225,43 +299,21 @@ export function MessageList({
                     />
                   ))}
 
-                {reactions.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 4,
-                      marginTop: -6,
-                      flexWrap: "wrap",
-                      justifyContent: isMe ? "flex-end" : "flex-start",
-                      position: "relative",
-                      zIndex: 1,
+                {(reactions.length > 0 || hovered) && (
+                  <ReactionRow
+                    reactions={reactions}
+                    isMe={isMe}
+                    displayName={displayName}
+                    currentUser={currentUser}
+                    onToggle={(emoji) => onToggleReaction(m, emoji)}
+                    onAddClick={() => setPickerFor(pickerFor === `add-${m.id}` ? null : `add-${m.id}`)}
+                    showAddPicker={pickerFor === `add-${m.id}`}
+                    onPickNew={(emoji) => {
+                      onToggleReaction(m, emoji);
+                      setPickerFor(null);
                     }}
-                  >
-                    {reactions.map((r) => (
-                      <button
-                        key={r.emoji}
-                        onClick={() => onToggleReaction(m, r.emoji)}
-                        className="v2-reaction-pop"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 3,
-                          background: C.reactionBg,
-                          border: r.mine ? `1.5px solid ${C.blue}` : "1.5px solid transparent",
-                          borderRadius: 12,
-                          padding: "1px 7px",
-                          fontSize: 12,
-                          color: C.reactionText,
-                          fontWeight: 500,
-                          cursor: "pointer",
-                          boxShadow: "0 1px 2px rgba(60,64,67,0.2)",
-                        }}
-                      >
-                        <span style={{ fontSize: 12.5 }}>{r.emoji}</span>
-                        <span>{r.count}</span>
-                      </button>
-                    ))}
-                  </div>
+                    onCloseAddPicker={() => setPickerFor(null)}
+                  />
                 )}
               </div>
             </div>
@@ -300,9 +352,129 @@ export function MessageList({
                 )}
               </div>
             )}
+              </>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ============================================================
+   리액션 한 줄 — 배지들 + 상시 노출되는 + 추가 버튼
+   ============================================================ */
+function ReactionRow({ reactions, isMe, displayName, currentUser, onToggle, onAddClick, showAddPicker, onPickNew, onCloseAddPicker }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        marginTop: 4,
+        flexWrap: "wrap",
+        justifyContent: isMe ? "flex-end" : "flex-start",
+        position: "relative",
+        zIndex: 1,
+      }}
+    >
+      {isMe && <AddReactionBtn onClick={onAddClick} />}
+
+      {reactions.map((r) => (
+        <ReactionBadge key={r.emoji} r={r} displayName={displayName} currentUser={currentUser} onClick={() => onToggle(r.emoji)} />
+      ))}
+
+      {!isMe && <AddReactionBtn onClick={onAddClick} />}
+
+      {showAddPicker && <EmojiPicker align={isMe ? "right" : "left"} onPick={onPickNew} onClose={onCloseAddPicker} />}
+    </div>
+  );
+}
+
+function AddReactionBtn({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title="반응 추가"
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        border: `1px solid ${C.border}`,
+        background: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        color: C.textFaint,
+        flexShrink: 0,
+        position: "relative",
+      }}
+    >
+      <IconSmile width={13} height={13} />
+    </button>
+  );
+}
+
+// 내가 누른 반응 = 진한 파랑 배경 + 흰 텍스트
+// 안 누른 반응  = 흰 배경 + 회색 테두리
+// 마우스를 올리면 검은 툴팁으로 "누가 어떤 이모지로 반응했는지" 표시
+function ReactionBadge({ r, displayName, currentUser, onClick }) {
+  const [hover, setHover] = useState(false);
+
+  const names = r.users.map((u) => (u === currentUser ? "나" : displayName(u)));
+  const nameLabel = names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} 외 ${names.length - 3}명`;
+  const tooltipText = `${nameLabel}님이 ${emojiName(r.emoji)} 이모티콘으로 반응함`;
+
+  return (
+    <div style={{ position: "relative" }} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <button
+        onClick={onClick}
+        className="v2-reaction-pop"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          background: r.mine ? C.blue : "#fff",
+          border: r.mine ? `1px solid ${C.blue}` : `1px solid ${C.border}`,
+          borderRadius: 12,
+          padding: "2px 8px",
+          fontSize: 12.5,
+          color: r.mine ? "#fff" : C.text,
+          fontWeight: 500,
+          cursor: "pointer",
+        }}
+      >
+        <span style={{ fontSize: 13 }}>{r.emoji}</span>
+        <span>{r.count}</span>
+      </button>
+
+      {hover && (
+        <div
+          className="v2-toolbar-in"
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            marginBottom: 6,
+            background: "#3c4043",
+            color: "#fff",
+            fontSize: 12,
+            padding: "6px 10px",
+            borderRadius: 6,
+            width: "max-content",
+            maxWidth: 220,
+            textAlign: "center",
+            lineHeight: 1.4,
+            zIndex: 30,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          }}
+        >
+          {tooltipText}
+          <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid #3c4043" }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -338,6 +510,40 @@ export function MessageInput({
   const [showEmoji, setShowEmoji] = useState(false);
   const [emojiSuggest, setEmojiSuggest] = useState(null); // :검색어 자동완성
   const [showHelp, setShowHelp] = useState(false); // / 명령어 도움말
+  const [showFormatBar, setShowFormatBar] = useState(false); // A 서식 툴바
+  const inputRef = useRef(null);
+
+  // 선택 영역이 있으면 그 부분을 감싸고, 없으면 커서 위치에 빈 문법을 넣고
+  // 그 사이에 커서를 둔다 (** | ** 처럼)
+  function wrapSelection(before, after = before) {
+    const el = inputRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? input.length;
+    const end = el.selectionEnd ?? input.length;
+    const selected = input.slice(start, end);
+    const next = input.slice(0, start) + before + selected + after + input.slice(end);
+    onInputChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = selected ? start + before.length + selected.length + after.length : start + before.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  function insertLinePrefix(prefix) {
+    const el = inputRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? input.length;
+    // 현재 커서가 있는 줄의 맨 앞을 찾는다
+    const lineStart = input.lastIndexOf("\n", start - 1) + 1;
+    const next = input.slice(0, lineStart) + prefix + input.slice(lineStart);
+    onInputChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + prefix.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  }
 
   useEffect(() => {
     if (!input) {
@@ -390,6 +596,59 @@ export function MessageInput({
 
   return (
     <div style={{ padding: "10px 24px 20px", position: "relative" }}>
+      {/* A 서식 툴바 - 사진 스펙: B I U A(밑줄표시) S | 목록 인용 링크 코드 */}
+      {showFormatBar && (
+        <div
+          className="v2-toolbar-in"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            background: "#fff",
+            border: `1px solid ${C.border}`,
+            borderRadius: 24,
+            padding: "6px 10px",
+            marginBottom: 8,
+            width: "fit-content",
+            boxShadow: "0 1px 4px rgba(60,64,67,0.15)",
+          }}
+        >
+          <FormatBtn label="B" bold onClick={() => wrapSelection("**")} title="굵게" />
+          <FormatBtn label="I" italic onClick={() => wrapSelection("*")} title="기울임" />
+          <FormatBtn label="U" underline onClick={() => wrapSelection("__")} title="밑줄" />
+          <FormatBtn label="A" underline color={C.blue} onClick={() => wrapSelection("==")} title="형광펜 강조" />
+          <FormatBtn label="S" strike onClick={() => wrapSelection("~~")} title="취소선" />
+          <Divider />
+          <FormatIconBtn onClick={() => insertLinePrefix("- ")} title="목록">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="9" y1="6" x2="20" y2="6" /><line x1="9" y1="12" x2="20" y2="12" /><line x1="9" y1="18" x2="20" y2="18" />
+              <circle cx="4" cy="6" r="1.4" fill="currentColor" /><circle cx="4" cy="12" r="1.4" fill="currentColor" /><circle cx="4" cy="18" r="1.4" fill="currentColor" />
+            </svg>
+          </FormatIconBtn>
+          <FormatIconBtn onClick={() => insertLinePrefix("> ")} title="인용">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 8c-2.2 0-4 1.8-4 4v4h4v-4H5c0-1.1.9-2 2-2V8zm10 0c-2.2 0-4 1.8-4 4v4h4v-4h-2c0-1.1.9-2 2-2V8z" />
+            </svg>
+          </FormatIconBtn>
+          <FormatIconBtn onClick={() => wrapSelection("[", "](url)")} title="링크">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+          </FormatIconBtn>
+          <FormatIconBtn onClick={() => wrapSelection("`")} title="인라인 코드">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+            </svg>
+          </FormatIconBtn>
+          <FormatIconBtn onClick={() => wrapSelection("```\n", "\n```")} title="코드 블록">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" /><line x1="7" y1="9" x2="10" y2="9" /><line x1="7" y1="13" x2="14" y2="13" />
+            </svg>
+          </FormatIconBtn>
+        </div>
+      )}
+
       {/* / 명령어 도움말 */}
       {showHelp && (
         <div
@@ -545,6 +804,7 @@ export function MessageInput({
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onFileSelected} style={{ display: "none" }} />
 
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
@@ -574,9 +834,13 @@ export function MessageInput({
           style={{ flex: 1, border: "none", outline: "none", fontSize: 14.5, padding: "9px 6px", fontFamily: C.font, color: C.text, background: "transparent" }}
         />
 
-        {/* 서식(A) */}
-        <button title="서식" style={iconBtnStyle}>
-          <span style={{ fontWeight: 600, fontSize: 15 }}>A</span>
+        {/* 서식(A) - 클릭하면 서식 툴바가 펼쳐짐 */}
+        <button
+          onClick={() => setShowFormatBar((v) => !v)}
+          title="서식"
+          style={{ ...iconBtnStyle, color: showFormatBar ? C.blue : iconBtnStyle.color }}
+        >
+          <span style={{ fontWeight: 600, fontSize: 15, textDecoration: showFormatBar ? "underline" : "none" }}>A</span>
         </button>
 
         {/* 이모지 */}
@@ -654,6 +918,51 @@ export function MessageInput({
       </div>
     </div>
   );
+}
+
+function FormatBtn({ label, onClick, title, bold, italic, underline, strike, color }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        width: 30,
+        height: 30,
+        border: "none",
+        background: "transparent",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontWeight: bold ? 700 : 400,
+        fontStyle: italic ? "italic" : "normal",
+        textDecoration: underline ? "underline" : strike ? "line-through" : "none",
+        fontSize: 14,
+        color: color || C.text,
+        fontFamily: C.font,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FormatIconBtn({ onClick, title, children }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{ width: 30, height: 30, border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: C.textSub }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = C.bgHover)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div style={{ width: 1, height: 18, background: C.border, margin: "0 4px" }} />;
 }
 
 const iconBtnStyle = {
