@@ -530,18 +530,14 @@ export function MessageInput({
         style={{
           display: "flex",
           alignItems: "center",
-          background: "#fff",
-          border: `1px solid ${C.border}`,
-          borderRadius: replyingTo ? "0 0 24px 24px" : 24,
-          padding: "6px 10px",
-          marginTop: replyingTo ? 0 : 0,
-          boxShadow: "0 1px 3px rgba(60,64,67,0.12)",
+          background: C.bgActive,
+          border: "none",
+          borderRadius: replyingTo ? "0 0 26px 26px" : 26,
+          padding: "6px 8px 6px 18px",
+          boxShadow: "none",
         }}
       >
         <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onFileSelected} style={{ display: "none" }} />
-        <button onClick={() => fileInputRef.current?.click()} title="사진 첨부" style={{ ...iconBtnStyle }}>
-          📎
-        </button>
 
         <input
           value={input}
@@ -568,11 +564,17 @@ export function MessageInput({
             e.preventDefault();
             onSend();
           }}
-          placeholder={uploading ? "이미지 업로드 중..." : `#${channelName}에 메시지 보내기  ( / 입력하면 도움말 )`}
+          placeholder={uploading ? "이미지 업로드 중..." : `#${channelName}에 메시지 보내기`}
           disabled={uploading}
           style={{ flex: 1, border: "none", outline: "none", fontSize: 14.5, padding: "9px 6px", fontFamily: C.font, color: C.text, background: "transparent" }}
         />
 
+        {/* 서식(A) */}
+        <button title="서식" style={iconBtnStyle}>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>A</span>
+        </button>
+
+        {/* 이모지 */}
         <div style={{ position: "relative" }}>
           <button onClick={() => setShowEmoji((v) => !v)} title="이모지" style={iconBtnStyle}>
             🙂
@@ -589,20 +591,62 @@ export function MessageInput({
           )}
         </div>
 
+        {/* 사진 첨부 (Google Chat의 GIF/이미지 버튼 자리) */}
+        <button onClick={() => fileInputRef.current?.click()} title="사진 첨부" style={iconBtnStyle}>
+          🖼️
+        </button>
+
+        {/* 파일 업로드 (같은 파일선택창 재사용) */}
+        <button onClick={() => fileInputRef.current?.click()} title="파일 업로드" style={iconBtnStyle}>
+          ⬆️
+        </button>
+
+        {/* 음성(자리만, 텍스트 채팅이라 비활성) */}
+        <button title="음성 메시지" disabled style={{ ...iconBtnStyle, opacity: 0.4, cursor: "default" }}>
+          🎤
+        </button>
+
+        <div style={{ width: 1, height: 20, background: "rgba(60,64,67,0.2)", margin: "0 4px" }} />
+
+        <button
+          title="전송 옵션"
+          style={{
+            width: 20,
+            height: 34,
+            border: "none",
+            background: "transparent",
+            color: C.textFaint,
+            fontSize: 10,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          ▾
+        </button>
+
         <button
           onClick={onSend}
           disabled={uploading || (!input.trim() && !pendingImage)}
+          title="전송"
           style={{
-            background: "transparent",
+            width: 34,
+            height: 34,
+            borderRadius: "50%",
+            background: (input.trim() || pendingImage) && !uploading ? C.blue : "transparent",
             border: "none",
-            color: (input.trim() || pendingImage) && !uploading ? C.blue : C.textFaint,
-            fontWeight: 600,
-            fontSize: 13.5,
+            color: (input.trim() || pendingImage) && !uploading ? "#fff" : C.textFaint,
+            fontSize: 15,
             cursor: (input.trim() || pendingImage) && !uploading ? "pointer" : "default",
-            padding: "8px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
-          {uploading ? "전송 중" : "전송"}
+          {uploading ? "…" : "➤"}
         </button>
       </div>
     </div>
