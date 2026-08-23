@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { C, Avatar, formatTime, avatarColor, initials } from "./helpers.jsx";
+import { C, Avatar, formatTime, avatarColor, initials, EMOJI_LIST } from "./helpers.jsx";
 import { MessageBody, SpoilerImage } from "./markdown.jsx";
 
 /* ============================================================
@@ -136,11 +136,13 @@ export function MessageList({
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  marginLeft: 44,
+                  marginLeft: isMe ? 0 : 44,
+                  marginRight: isMe ? 44 : 0,
                   marginBottom: 2,
                   color: C.textFaint,
                   fontSize: 12.5,
                   cursor: "pointer",
+                  justifyContent: isMe ? "flex-end" : "flex-start",
                 }}
               >
                 <span>↳</span>
@@ -150,7 +152,7 @@ export function MessageList({
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, flexDirection: isMe ? "row-reverse" : "row" }}>
               <div style={{ width: 36, flexShrink: 0 }}>
                 {!grouped && (
                   <Avatar
@@ -167,27 +169,30 @@ export function MessageList({
                 )}
               </div>
 
-              <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
                 {!grouped && (
                   <div style={{ marginBottom: 2 }}>
-                    <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>
-                    <span style={{ color: C.textFaint, fontSize: 12, marginLeft: 8 }}>{formatTime(m.created_at)}</span>
+                    {!isMe && <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>}
+                    <span style={{ color: C.textFaint, fontSize: 12, marginLeft: isMe ? 0 : 8, marginRight: isMe ? 8 : 0 }}>{formatTime(m.created_at)}</span>
+                    {isMe && <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>}
                   </div>
                 )}
 
-                {/* 말풍선 */}
+                {/* 말풍선: 내용 길이에 맞춰 좁게, 최대 폭만 제한 */}
                 {m.text && (
                   <div
                     style={{
                       display: "inline-block",
-                      maxWidth: "min(640px, 100%)",
+                      maxWidth: "min(480px, 78%)",
+                      width: "fit-content",
                       background: isMe ? C.bubbleMe : C.bubbleOther,
-                      color: C.text,
-                      borderRadius: 14,
+                      color: isMe ? C.bubbleMeText : C.bubbleOtherText,
+                      borderRadius: 16,
                       padding: "8px 14px",
                       fontSize: 14.5,
                       lineHeight: 1.5,
                       wordBreak: "break-word",
+                      textAlign: "left",
                     }}
                   >
                     <MessageBody text={m.text} messageId={m.id} mentionNames={mentionNames} me={currentUser} />
@@ -206,10 +211,10 @@ export function MessageList({
                       style={{
                         marginTop: 4,
                         width: "100%",
-                        maxWidth: 420,
+                        maxWidth: 380,
                         minWidth: 180,
-                        maxHeight: 420,
-                        borderRadius: 12,
+                        maxHeight: 380,
+                        borderRadius: 14,
                         display: "block",
                         cursor: "pointer",
                         objectFit: "contain",
@@ -219,7 +224,7 @@ export function MessageList({
                   ))}
 
                 {reactions.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap", justifyContent: isMe ? "flex-end" : "flex-start" }}>
                     {reactions.map((r) => (
                       <button
                         key={r.emoji}
@@ -252,7 +257,7 @@ export function MessageList({
                 style={{
                   position: "absolute",
                   top: -14,
-                  left: 48,
+                  [isMe ? "right" : "left"]: 48,
                   background: "#fff",
                   border: `1px solid ${C.border}`,
                   borderRadius: 8,
@@ -269,7 +274,7 @@ export function MessageList({
                     🙂
                   </button>
                   {pickerOpen && (
-                    <EmojiPicker align="right" onPick={(e) => { onToggleReaction(m, e); setPickerFor(null); }} onClose={() => setPickerFor(null)} />
+                    <EmojiPicker align={isMe ? "right" : "left"} onPick={(e) => { onToggleReaction(m, e); setPickerFor(null); }} onClose={() => setPickerFor(null)} />
                   )}
                 </div>
                 {isMe && (
@@ -315,9 +320,148 @@ export function MessageInput({
   onFileSelected,
 }) {
   const [showEmoji, setShowEmoji] = useState(false);
+  const [emojiSuggest, setEmojiSuggest] = useState(null); // :검색어 자동완성
+  const [showHelp, setShowHelp] = useState(false); // / 명령어 도움말
+
+  useEffect(() => {
+    if (!input) {
+      setEmojiSuggest(null);
+      setShowHelp(false);
+    }
+  }, [input]);
+
+  function handleChange(value) {
+    onInputChange(value);
+    setShowHelp(value.startsWith("/"));
+
+    const m = value.match(/(?:^|\s):([\w가-힣]{1,20})$/);
+    if (m) {
+      const q = m[1].toLowerCase();
+      const list = EMOJI_LIST.filter((item) => item.names.some((n) => n.toLowerCase().includes(q))).slice(0, 24);
+      setEmojiSuggest(list.length > 0 ? { list } : null);
+    } else {
+      setEmojiSuggest(null);
+    }
+  }
+
+  function insertEmoji(emoji) {
+    onInputChange(input.replace(/:[\w가-힣]{1,20}$/, emoji));
+    setEmojiSuggest(null);
+  }
+
+  function runCommand(raw) {
+    const [cmd, ...rest] = raw.slice(1).split(" ");
+    const arg = rest.join(" ");
+    switch (cmd) {
+      case "spoiler":
+        onInputChange(`<${arg}>`);
+        return true;
+      case "shrug":
+        onInputChange(`${arg} ¯\\_(ツ)_/¯`.trim());
+        return true;
+      case "clear":
+        onInputChange("");
+        setShowHelp(false);
+        return true;
+      case "help":
+        onInputChange("");
+        setShowHelp(true);
+        return true;
+      default:
+        return false;
+    }
+  }
 
   return (
-    <div style={{ padding: "10px 24px 20px" }}>
+    <div style={{ padding: "10px 24px 20px", position: "relative" }}>
+      {/* / 명령어 도움말 */}
+      {showHelp && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: 24,
+            right: 24,
+            background: "#fff",
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 8,
+            boxShadow: "0 2px 12px rgba(60,64,67,0.25)",
+            border: `1px solid ${C.border}`,
+            maxHeight: 320,
+            overflowY: "auto",
+            zIndex: 40,
+          }}
+        >
+          <div style={{ color: C.text, fontWeight: 600, fontSize: 14, marginBottom: 10 }}>명령어 &amp; 사용법</div>
+          {[
+            ["/help", "이 도움말 보기"],
+            ["/spoiler 내용", "스포일러로 감싸기"],
+            ["/shrug", "¯\\_(ツ)_/¯ 붙이기"],
+            ["/clear", "입력창 비우기"],
+          ].map(([cmd, desc]) => (
+            <div key={cmd} style={{ display: "flex", gap: 10, marginBottom: 5, fontSize: 13 }}>
+              <code style={{ color: C.blue, minWidth: 120 }}>{cmd}</code>
+              <span style={{ color: C.textSub }}>{desc}</span>
+            </div>
+          ))}
+          <div style={{ color: C.text, fontWeight: 600, fontSize: 14, margin: "14px 0 8px", borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+            채팅 문법
+          </div>
+          {[
+            ["<내용>", "스포일러 (클릭하면 열림, Tab으로 전체 보기)"],
+            ["@이름", "멘션"],
+            ["**굵게**", "굵은 글씨"],
+            ["*기울임*", "기울인 글씨"],
+            ["~~취소선~~", "취소선"],
+            ["`코드`", "인라인 코드"],
+            ["# 제목", "제목 (1~6단계)"],
+            ["- 목록", "글머리 목록"],
+            ["> 인용", "인용문"],
+            [":검색어", "이모지 찾기 (Enter로 바로 삽입)"],
+          ].map(([syntax, desc]) => (
+            <div key={syntax} style={{ display: "flex", gap: 10, marginBottom: 5, fontSize: 13 }}>
+              <code style={{ color: C.yellow, minWidth: 120 }}>{syntax}</code>
+              <span style={{ color: C.textSub }}>{desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* : 이모지 자동완성 */}
+      {emojiSuggest && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: 24,
+            background: "#fff",
+            borderRadius: 12,
+            padding: 8,
+            marginBottom: 8,
+            boxShadow: "0 2px 12px rgba(60,64,67,0.25)",
+            border: `1px solid ${C.border}`,
+            display: "grid",
+            gridTemplateColumns: "repeat(8, 1fr)",
+            gap: 2,
+            zIndex: 40,
+          }}
+        >
+          {emojiSuggest.list.map((item) => (
+            <button
+              key={item.e}
+              onClick={() => insertEmoji(item.e)}
+              title={item.names.join(", ")}
+              style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", padding: "6px 8px", borderRadius: 6 }}
+              onMouseEnter={(ev) => (ev.currentTarget.style.background = C.bgHover)}
+              onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
+            >
+              {item.e}
+            </button>
+          ))}
+        </div>
+      )}
+
       {replyingTo && (
         <div
           style={{
@@ -386,14 +530,30 @@ export function MessageInput({
 
         <input
           value={input}
-          onChange={(e) => onInputChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
+            if (e.key === "Escape") {
+              setShowHelp(false);
+              setEmojiSuggest(null);
+              return;
             }
+            if (e.key !== "Enter" || e.shiftKey) return;
+
+            // 이모지 자동완성이 떠 있으면 Enter로 첫 항목 바로 확정
+            if (emojiSuggest?.list?.length) {
+              e.preventDefault();
+              insertEmoji(emojiSuggest.list[0].e);
+              return;
+            }
+            // "/" 명령어면 실행하고 전송하지 않음
+            if (input.startsWith("/") && runCommand(input)) {
+              e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            onSend();
           }}
-          placeholder={uploading ? "이미지 업로드 중..." : `#${channelName}에 메시지 보내기`}
+          placeholder={uploading ? "이미지 업로드 중..." : `#${channelName}에 메시지 보내기  ( / 입력하면 도움말 )`}
           disabled={uploading}
           style={{ flex: 1, border: "none", outline: "none", fontSize: 14.5, padding: "9px 6px", fontFamily: C.font, color: C.text, background: "transparent" }}
         />
