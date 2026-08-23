@@ -1,0 +1,446 @@
+import React, { useState, useRef, useEffect } from "react";
+import { C, Avatar, formatTime, avatarColor, initials } from "./helpers.jsx";
+import { MessageBody, SpoilerImage } from "./markdown.jsx";
+
+/* ============================================================
+   이모지 선택기
+   ============================================================ */
+const EMOJI_CHOICES = ["👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👀", "🤔", "🙌", "✅", "❓"];
+
+export function EmojiPicker({ onPick, onClose, align = "left" }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function onDoc(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        bottom: "100%",
+        [align === "right" ? "right" : "left"]: 0,
+        marginBottom: 8,
+        background: "#fff",
+        borderRadius: 10,
+        padding: 8,
+        display: "grid",
+        gridTemplateColumns: "repeat(6, 1fr)",
+        gap: 2,
+        boxShadow: "0 2px 10px rgba(60,64,67,0.3)",
+        border: `1px solid ${C.border}`,
+        zIndex: 30,
+      }}
+    >
+      {EMOJI_CHOICES.map((e) => (
+        <button
+          key={e}
+          onClick={() => onPick(e)}
+          style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", padding: "6px 8px", borderRadius: 6 }}
+          onMouseEnter={(ev) => (ev.currentTarget.style.background = C.bgHover)}
+          onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
+        >
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function summarizeReactions(reactions, currentUser) {
+  if (!reactions || typeof reactions !== "object") return [];
+  return Object.entries(reactions)
+    .map(([emoji, users]) => ({
+      emoji,
+      count: Array.isArray(users) ? users.length : 0,
+      mine: Array.isArray(users) && users.includes(currentUser),
+    }))
+    .filter((r) => r.count > 0);
+}
+
+/* ============================================================
+   메시지 리스트
+   ============================================================ */
+export function MessageList({
+  messages,
+  loading,
+  currentUser,
+  displayName,
+  userAvatar,
+  userColor,
+  isUserOnline,
+  onDelete,
+  onReply,
+  onToggleReaction,
+  mentionNames,
+  scrollRef,
+  onScroll,
+  onImageLoad,
+}) {
+  const [hoveredId, setHoveredId] = useState(null);
+  const [pickerFor, setPickerFor] = useState(null);
+
+  return (
+    <div ref={scrollRef} onScroll={onScroll} style={{ flex: 1, overflowY: "auto", padding: "18px 28px" }}>
+      {loading && <div style={{ color: C.textFaint, fontSize: 14 }}>불러오는 중...</div>}
+      {!loading && messages.length === 0 && (
+        <div style={{ color: C.textFaint, fontSize: 14 }}>아직 메시지가 없습니다. 첫 메시지를 보내보세요!</div>
+      )}
+
+      {messages.map((m, idx) => {
+        const prev = messages[idx - 1];
+        const grouped =
+          prev &&
+          prev.author === m.author &&
+          !m.reply_to_author &&
+          !prev.image_url === !m.image_url &&
+          new Date(m.created_at) - new Date(prev.created_at) < 5 * 60 * 1000;
+
+        const reactions = summarizeReactions(m.reactions, currentUser);
+        const isMe = m.author === currentUser;
+        const hovered = hoveredId === m.id;
+        const pickerOpen = pickerFor === m.id;
+        const showToolbar = hovered || pickerOpen;
+
+        return (
+          <div
+            key={m.id}
+            id={`v2msg-${m.id}`}
+            onMouseEnter={() => setHoveredId(m.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            style={{
+              marginTop: grouped ? 2 : 14,
+              padding: "3px 10px",
+              marginLeft: -10,
+              marginRight: -10,
+              borderRadius: 10,
+              background: hovered ? "#f8f9fa" : "transparent",
+              position: "relative",
+            }}
+          >
+            {m.reply_to_author && (
+              <div
+                onClick={() => {
+                  const t = document.getElementById(`v2msg-${m.reply_to_id}`);
+                  if (t) {
+                    t.scrollIntoView({ behavior: "smooth", block: "center" });
+                    t.style.background = C.bgActive;
+                    setTimeout(() => (t.style.background = "transparent"), 1200);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginLeft: 44,
+                  marginBottom: 2,
+                  color: C.textFaint,
+                  fontSize: 12.5,
+                  cursor: "pointer",
+                }}
+              >
+                <span>↳</span>
+                <Avatar url={userAvatar(m.reply_to_author)} color={userColor(m.reply_to_author)} label={displayName(m.reply_to_author)} size={15} />
+                <span style={{ color: C.textSub, fontWeight: 600 }}>{displayName(m.reply_to_author)}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.reply_to_text}</span>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ width: 36, flexShrink: 0 }}>
+                {!grouped && (
+                  <Avatar
+                    url={userAvatar(m.author)}
+                    color={userColor(m.author)}
+                    label={displayName(m.author)}
+                    size={36}
+                    online={isUserOnline(m.author)}
+                    showStatus
+                  />
+                )}
+                {grouped && hovered && (
+                  <div style={{ color: C.textFaint, fontSize: 10, textAlign: "center", marginTop: 2 }}>{formatTime(m.created_at)}</div>
+                )}
+              </div>
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                {!grouped && (
+                  <div style={{ marginBottom: 2 }}>
+                    <span style={{ color: C.text, fontWeight: 600, fontSize: 14.5 }}>{displayName(m.author)}</span>
+                    <span style={{ color: C.textFaint, fontSize: 12, marginLeft: 8 }}>{formatTime(m.created_at)}</span>
+                  </div>
+                )}
+
+                {/* 말풍선 */}
+                {m.text && (
+                  <div
+                    style={{
+                      display: "inline-block",
+                      maxWidth: "min(640px, 100%)",
+                      background: isMe ? C.bubbleMe : C.bubbleOther,
+                      color: C.text,
+                      borderRadius: 14,
+                      padding: "8px 14px",
+                      fontSize: 14.5,
+                      lineHeight: 1.5,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <MessageBody text={m.text} messageId={m.id} mentionNames={mentionNames} me={currentUser} />
+                  </div>
+                )}
+
+                {m.image_url &&
+                  (m.image_spoiler ? (
+                    <SpoilerImage src={m.image_url} onOpen={() => onImageLoad?.(idx)} />
+                  ) : (
+                    <img
+                      src={m.image_url}
+                      alt="첨부 이미지"
+                      onClick={() => window.open(m.image_url, "_blank")}
+                      onLoad={() => onImageLoad?.(idx)}
+                      style={{
+                        marginTop: 4,
+                        width: "100%",
+                        maxWidth: 420,
+                        minWidth: 180,
+                        maxHeight: 420,
+                        borderRadius: 12,
+                        display: "block",
+                        cursor: "pointer",
+                        objectFit: "contain",
+                        background: C.bgRail,
+                      }}
+                    />
+                  ))}
+
+                {reactions.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                    {reactions.map((r) => (
+                      <button
+                        key={r.emoji}
+                        onClick={() => onToggleReaction(m, r.emoji)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          background: r.mine ? C.bgActive : "#fff",
+                          border: `1px solid ${r.mine ? C.blue : C.border}`,
+                          borderRadius: 12,
+                          padding: "2px 8px",
+                          fontSize: 12.5,
+                          color: r.mine ? C.blueDark : C.text,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span>{r.emoji}</span>
+                        <span>{r.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {showToolbar && (
+              <div
+                onMouseEnter={() => setHoveredId(m.id)}
+                style={{
+                  position: "absolute",
+                  top: -14,
+                  left: 48,
+                  background: "#fff",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  display: "flex",
+                  boxShadow: "0 2px 8px rgba(60,64,67,0.2)",
+                  zIndex: 20,
+                }}
+              >
+                <button onClick={() => onReply(m)} title="답글" style={toolBtnStyle}>
+                  ↩️
+                </button>
+                <div style={{ position: "relative" }}>
+                  <button onClick={() => setPickerFor(pickerOpen ? null : m.id)} title="반응" style={toolBtnStyle}>
+                    🙂
+                  </button>
+                  {pickerOpen && (
+                    <EmojiPicker align="right" onPick={(e) => { onToggleReaction(m, e); setPickerFor(null); }} onClose={() => setPickerFor(null)} />
+                  )}
+                </div>
+                {isMe && (
+                  <button onClick={() => onDelete(m)} title="삭제" style={{ ...toolBtnStyle, color: C.red }}>
+                    🗑️
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const toolBtnStyle = {
+  background: "transparent",
+  border: "none",
+  fontSize: 15,
+  padding: "7px 9px",
+  cursor: "pointer",
+};
+
+/* ============================================================
+   메시지 입력창
+   ============================================================ */
+export function MessageInput({
+  channelName,
+  input,
+  onInputChange,
+  onSend,
+  replyingTo,
+  onCancelReply,
+  displayName,
+  pendingImage,
+  onPickImage,
+  onCancelImage,
+  pendingSpoiler,
+  onToggleSpoiler,
+  uploading,
+  fileInputRef,
+  onFileSelected,
+}) {
+  const [showEmoji, setShowEmoji] = useState(false);
+
+  return (
+    <div style={{ padding: "10px 24px 20px" }}>
+      {replyingTo && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: C.bgRail,
+            borderRadius: "10px 10px 0 0",
+            padding: "8px 14px",
+            fontSize: 13,
+            color: C.textSub,
+          }}
+        >
+          <span>
+            <b style={{ color: C.text }}>{displayName(replyingTo.author)}</b>에게 답장
+          </span>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.textFaint }}>
+            {replyingTo.text || (replyingTo.image_url ? "[사진]" : "")}
+          </span>
+          <button onClick={onCancelReply} style={{ background: "none", border: "none", color: C.textFaint, cursor: "pointer" }}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {pendingImage && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.bgRail, borderRadius: 10, padding: 10, marginTop: replyingTo ? 0 : 8 }}>
+          <img src={pendingImage.previewUrl} alt="미리보기" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} />
+          <div style={{ flex: 1, fontSize: 13, color: C.textSub }}>{pendingImage.file.name}</div>
+          <button
+            onClick={onToggleSpoiler}
+            style={{
+              background: pendingSpoiler ? C.blue : "#fff",
+              color: pendingSpoiler ? "#fff" : C.textSub,
+              border: `1px solid ${pendingSpoiler ? C.blue : C.border}`,
+              borderRadius: 8,
+              padding: "6px 10px",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            🙈 스포일러{pendingSpoiler ? " ✓" : ""}
+          </button>
+          <button onClick={onCancelImage} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
+            취소
+          </button>
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          background: "#fff",
+          border: `1px solid ${C.border}`,
+          borderRadius: replyingTo ? "0 0 24px 24px" : 24,
+          padding: "6px 10px",
+          marginTop: replyingTo ? 0 : 0,
+          boxShadow: "0 1px 3px rgba(60,64,67,0.12)",
+        }}
+      >
+        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onFileSelected} style={{ display: "none" }} />
+        <button onClick={() => fileInputRef.current?.click()} title="사진 첨부" style={{ ...iconBtnStyle }}>
+          📎
+        </button>
+
+        <input
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          placeholder={uploading ? "이미지 업로드 중..." : `#${channelName}에 메시지 보내기`}
+          disabled={uploading}
+          style={{ flex: 1, border: "none", outline: "none", fontSize: 14.5, padding: "9px 6px", fontFamily: C.font, color: C.text, background: "transparent" }}
+        />
+
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowEmoji((v) => !v)} title="이모지" style={iconBtnStyle}>
+            🙂
+          </button>
+          {showEmoji && (
+            <EmojiPicker
+              align="right"
+              onPick={(e) => {
+                onInputChange(input + e);
+                setShowEmoji(false);
+              }}
+              onClose={() => setShowEmoji(false)}
+            />
+          )}
+        </div>
+
+        <button
+          onClick={onSend}
+          disabled={uploading || (!input.trim() && !pendingImage)}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: (input.trim() || pendingImage) && !uploading ? C.blue : C.textFaint,
+            fontWeight: 600,
+            fontSize: 13.5,
+            cursor: (input.trim() || pendingImage) && !uploading ? "pointer" : "default",
+            padding: "8px 14px",
+          }}
+        >
+          {uploading ? "전송 중" : "전송"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const iconBtnStyle = {
+  background: "transparent",
+  border: "none",
+  fontSize: 18,
+  cursor: "pointer",
+  padding: "8px",
+  display: "flex",
+  alignItems: "center",
+  color: C.textSub,
+};
