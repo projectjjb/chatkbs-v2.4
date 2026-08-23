@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { C, Avatar, formatTime, avatarColor, initials, EMOJI_LIST } from "./helpers.jsx";
 import { MessageBody, SpoilerImage } from "./markdown.jsx";
+import { IconReply, IconSmile, IconTrash, IconEyeOff, IconBold, IconAttach, IconUpload, IconMic, IconSend, IconChevronDown } from "./icons.jsx";
 
 /* ============================================================
    이모지 선택기
@@ -282,11 +283,11 @@ export function MessageList({
                 }}
               >
                 <button onClick={() => onReply(m)} title="답글" style={toolBtnStyle}>
-                  ↩️
+                  <IconReply width={16} height={16} />
                 </button>
                 <div style={{ position: "relative" }}>
                   <button onClick={() => setPickerFor(pickerOpen ? null : m.id)} title="반응" style={toolBtnStyle}>
-                    🙂
+                    <IconSmile width={16} height={16} />
                   </button>
                   {pickerOpen && (
                     <EmojiPicker align={isMe ? "right" : "left"} onPick={(e) => { onToggleReaction(m, e); setPickerFor(null); }} onClose={() => setPickerFor(null)} />
@@ -294,7 +295,7 @@ export function MessageList({
                 </div>
                 {isMe && (
                   <button onClick={() => onDelete(m)} title="삭제" style={{ ...toolBtnStyle, color: C.red }}>
-                    🗑️
+                    <IconTrash width={16} height={16} />
                   </button>
                 )}
               </div>
@@ -509,6 +510,9 @@ export function MessageInput({
           <button
             onClick={onToggleSpoiler}
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               background: pendingSpoiler ? C.blue : "#fff",
               color: pendingSpoiler ? "#fff" : C.textSub,
               border: `1px solid ${pendingSpoiler ? C.blue : C.border}`,
@@ -518,7 +522,8 @@ export function MessageInput({
               cursor: "pointer",
             }}
           >
-            🙈 스포일러{pendingSpoiler ? " ✓" : ""}
+            <IconEyeOff width={14} height={14} />
+            스포일러{pendingSpoiler ? " ✓" : ""}
           </button>
           <button onClick={onCancelImage} style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
             취소
@@ -577,7 +582,7 @@ export function MessageInput({
         {/* 이모지 */}
         <div style={{ position: "relative" }}>
           <button onClick={() => setShowEmoji((v) => !v)} title="이모지" style={iconBtnStyle}>
-            🙂
+            <IconSmile width={17} height={17} />
           </button>
           {showEmoji && (
             <EmojiPicker
@@ -591,19 +596,19 @@ export function MessageInput({
           )}
         </div>
 
-        {/* 사진 첨부 (Google Chat의 GIF/이미지 버튼 자리) */}
+        {/* 사진 첨부 */}
         <button onClick={() => fileInputRef.current?.click()} title="사진 첨부" style={iconBtnStyle}>
-          🖼️
+          <IconAttach width={17} height={17} />
         </button>
 
         {/* 파일 업로드 (같은 파일선택창 재사용) */}
         <button onClick={() => fileInputRef.current?.click()} title="파일 업로드" style={iconBtnStyle}>
-          ⬆️
+          <IconUpload width={17} height={17} />
         </button>
 
         {/* 음성(자리만, 텍스트 채팅이라 비활성) */}
         <button title="음성 메시지" disabled style={{ ...iconBtnStyle, opacity: 0.4, cursor: "default" }}>
-          🎤
+          <IconMic width={17} height={17} />
         </button>
 
         <div style={{ width: 1, height: 20, background: "rgba(60,64,67,0.2)", margin: "0 4px" }} />
@@ -616,7 +621,6 @@ export function MessageInput({
             border: "none",
             background: "transparent",
             color: C.textFaint,
-            fontSize: 10,
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -624,7 +628,7 @@ export function MessageInput({
             flexShrink: 0,
           }}
         >
-          ▾
+          <IconChevronDown width={12} height={12} />
         </button>
 
         <button
@@ -638,7 +642,6 @@ export function MessageInput({
             background: (input.trim() || pendingImage) && !uploading ? C.blue : "transparent",
             border: "none",
             color: (input.trim() || pendingImage) && !uploading ? "#fff" : C.textFaint,
-            fontSize: 15,
             cursor: (input.trim() || pendingImage) && !uploading ? "pointer" : "default",
             display: "flex",
             alignItems: "center",
@@ -646,7 +649,7 @@ export function MessageInput({
             flexShrink: 0,
           }}
         >
-          {uploading ? "…" : "➤"}
+          {uploading ? "…" : <IconSend width={15} height={15} style={{ marginLeft: -1 }} />}
         </button>
       </div>
     </div>
