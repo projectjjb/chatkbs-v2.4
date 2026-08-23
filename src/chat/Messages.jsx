@@ -110,6 +110,7 @@ export function MessageList({
           <div
             key={m.id}
             id={`v2msg-${m.id}`}
+            className={idx === messages.length - 1 ? "v2-msg-in" : undefined}
             onMouseEnter={() => setHoveredId(m.id)}
             onMouseLeave={() => setHoveredId(null)}
             style={{
@@ -224,25 +225,38 @@ export function MessageList({
                   ))}
 
                 {reactions.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap", justifyContent: isMe ? "flex-end" : "flex-start" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 4,
+                      marginTop: -6,
+                      flexWrap: "wrap",
+                      justifyContent: isMe ? "flex-end" : "flex-start",
+                      position: "relative",
+                      zIndex: 1,
+                    }}
+                  >
                     {reactions.map((r) => (
                       <button
                         key={r.emoji}
                         onClick={() => onToggleReaction(m, r.emoji)}
+                        className="v2-reaction-pop"
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 4,
-                          background: r.mine ? C.bgActive : "#fff",
-                          border: `1px solid ${r.mine ? C.blue : C.border}`,
+                          gap: 3,
+                          background: C.reactionBg,
+                          border: r.mine ? `1.5px solid ${C.blue}` : "1.5px solid transparent",
                           borderRadius: 12,
-                          padding: "2px 8px",
-                          fontSize: 12.5,
-                          color: r.mine ? C.blueDark : C.text,
+                          padding: "1px 7px",
+                          fontSize: 12,
+                          color: C.reactionText,
+                          fontWeight: 500,
                           cursor: "pointer",
+                          boxShadow: "0 1px 2px rgba(60,64,67,0.2)",
                         }}
                       >
-                        <span>{r.emoji}</span>
+                        <span style={{ fontSize: 12.5 }}>{r.emoji}</span>
                         <span>{r.count}</span>
                       </button>
                     ))}
@@ -253,6 +267,7 @@ export function MessageList({
 
             {showToolbar && (
               <div
+                className="v2-toolbar-in"
                 onMouseEnter={() => setHoveredId(m.id)}
                 style={{
                   position: "absolute",
