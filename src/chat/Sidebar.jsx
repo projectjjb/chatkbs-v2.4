@@ -33,6 +33,7 @@ export function ChannelSidebar({
   onSelectChannel,
   onChangeView,
   onRenameChannel,
+  onReorderChannels,
   onlineUsers,
   currentUser,
   displayName,
@@ -45,6 +46,26 @@ export function ChannelSidebar({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(serverName);
   const [editingChannelId, setEditingChannelId] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+
+  function handleDrop(targetId) {
+    if (dragId == null || dragId === targetId) {
+      setDragId(null);
+      setDragOverId(null);
+      return;
+    }
+    const ids = channels.map((c) => c.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    const reordered = [...channels];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    onReorderChannels?.(reordered);
+    setDragId(null);
+    setDragOverId(null);
+  }
   const [channelDraft, setChannelDraft] = useState("");
 
   function commitName() {
@@ -159,6 +180,23 @@ export function ChannelSidebar({
               onEditCancel={() => setEditingChannelId(null)}
               onDoubleClick={() => startRenameChannel(c)}
               onRenameClick={() => startRenameChannel(c)}
+              draggable={!isEditing}
+              isDragging={dragId === c.id}
+              isDragOver={dragOverId === c.id && dragId !== c.id}
+              onDragStart={() => setDragId(c.id)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverId(c.id);
+              }}
+              onDragLeave={() => setDragOverId((prev) => (prev === c.id ? null : prev))}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(c.id);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setDragOverId(null);
+              }}
               icon={
                 <SpaceIcon>
                   <span style={{ color: "#5f6368" }}>
@@ -242,16 +280,54 @@ function ShortcutRow({ icon, label, active, onClick }) {
   );
 }
 
-function SpaceRow({ active, icon, label, onClick, editing, editValue, onEditChange, onEditCommit, onEditCancel, onDoubleClick, onRenameClick }) {
+function SpaceRow({
+  active,
+  icon,
+  label,
+  onClick,
+  editing,
+  editValue,
+  onEditChange,
+  onEditCommit,
+  onEditCancel,
+  onDoubleClick,
+  onRenameClick,
+  draggable,
+  isDragging,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}) {
   const [hover, setHover] = useState(false);
   return (
     <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       onClick={editing ? undefined : onClick}
       onDoubleClick={onDoubleClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={onDoubleClick ? "더블클릭하면 이름을 바꿀 수 있어요" : undefined}
-      style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, marginBottom: 1, cursor: editing ? "default" : "pointer", background: active ? C.bgActive : "transparent" }}
+      title={onDoubleClick ? "더블클릭하면 이름을 바꿀 수 있어요 · 드래그해서 순서를 바꿀 수 있어요" : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "7px 10px",
+        borderRadius: 8,
+        marginBottom: 1,
+        cursor: editing ? "default" : draggable ? "grab" : "pointer",
+        background: active ? C.bgActive : "transparent",
+        opacity: isDragging ? 0.4 : 1,
+        borderTop: isDragOver ? `2px solid ${C.blue}` : "2px solid transparent",
+        transition: "opacity 0.12s ease",
+      }}
       onMouseEnterCapture={(e) => {
         if (!active && !editing) e.currentTarget.style.background = C.bgHover;
       }}
