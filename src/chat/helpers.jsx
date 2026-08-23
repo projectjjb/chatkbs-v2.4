@@ -20,7 +20,7 @@ export const C = {
   red: "#d93025",
   yellow: "#f9ab00",
   green: "#1e8e3e",
-  bubbleMe: "#1a73e8",
+  bubbleMe: "#1967d2",
   bubbleMeText: "#ffffff",
   bubbleOther: "#f1f3f4",
   bubbleOtherText: "#202124",
