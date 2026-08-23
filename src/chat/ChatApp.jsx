@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { sbSelect, sbInsert, sbUpdate, sbDelete, SUPABASE_URL, SUPABASE_ANON_KEY } from "../AuthGate.jsx";
 import { C, Avatar, formatTime, avatarColor, initials, isOnline, validateImageFile, compressImage, uploadImage } from "./helpers.jsx";
-import { IconRail, ChannelSidebar } from "./Sidebar.jsx";
+import { ChannelSidebar } from "./Sidebar.jsx";
 import { MessageList, MessageInput } from "./Messages.jsx";
 import { useTabRevealSpoilers } from "./markdown.jsx";
 import SettingsModal from "./SettingsModal.jsx";
@@ -373,104 +373,99 @@ export default function ChatApp({ user }) {
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100%", background: C.bg, fontFamily: C.font, overflow: "hidden" }}>
-      <IconRail currentView={currentView} onChangeView={setCurrentView} serverInitial={serverName?.trim()?.[0]} />
+      <ChannelSidebar
+        serverName={serverName}
+        onEditServerName={saveServerName}
+        channels={channels}
+        activeChannel={activeChannel}
+        currentView={currentView}
+        onSelectChannel={setActiveChannel}
+        onChangeView={setCurrentView}
+        onlineUsers={onlineUsers}
+        currentUser={currentUser}
+        displayName={displayName}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setShowAdmin(true)}
+        onOpenSettings={() => setShowSettings(true)}
+        myAvatarUrl={myAvatarUrl}
+        myColor={myColor || avatarColor(currentUser)}
+      />
 
       {currentView === "chat" && (
-        <>
-          <ChannelSidebar
-            serverName={serverName}
-            onEditServerName={saveServerName}
-            channels={channels}
-            activeChannel={activeChannel}
-            onSelectChannel={setActiveChannel}
-            onlineUsers={onlineUsers}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
+          <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <span style={{ color: C.textFaint, fontSize: 19, marginRight: 6 }}>#</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: C.text }}>{channelName}</span>
+          </div>
+
+          <MessageList
+            messages={messages}
+            loading={loadingChannels}
             currentUser={currentUser}
             displayName={displayName}
             userAvatar={userAvatar}
             userColor={userColor}
-            profileMap={profileMap}
-            onOpenSettings={() => setShowSettings(true)}
-            isAdmin={isAdmin}
-            onOpenAdmin={() => setShowAdmin(true)}
-            myAvatarUrl={myAvatarUrl}
-            myColor={myColor || avatarColor(currentUser)}
+            isUserOnline={isUserOnline}
+            onDelete={deleteMessage}
+            onReply={setReplyingTo}
+            onToggleReaction={toggleReaction}
+            mentionNames={allUserNames}
+            scrollRef={scrollRef}
+            onScroll={handleScroll}
+            onImageLoad={(idx) => {
+              if (idx === messages.length - 1 && isNearBottomRef.current) scrollToBottom(false);
+            }}
           />
 
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, position: "relative" }}>
-            <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 24px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-              <span style={{ color: C.textFaint, fontSize: 19, marginRight: 6 }}>#</span>
-              <span style={{ fontSize: 16, fontWeight: 500, color: C.text }}>{channelName}</span>
-            </div>
-
-            <MessageList
-              messages={messages}
-              loading={loadingChannels}
-              currentUser={currentUser}
-              displayName={displayName}
-              userAvatar={userAvatar}
-              userColor={userColor}
-              isUserOnline={isUserOnline}
-              onDelete={deleteMessage}
-              onReply={setReplyingTo}
-              onToggleReaction={toggleReaction}
-              mentionNames={allUserNames}
-              scrollRef={scrollRef}
-              onScroll={handleScroll}
-              onImageLoad={(idx) => {
-                if (idx === messages.length - 1 && isNearBottomRef.current) scrollToBottom(false);
+          {showJumpDown && (
+            <div
+              onClick={() => {
+                isNearBottomRef.current = true;
+                scrollToBottom(true);
               }}
-            />
+              style={{
+                position: "absolute",
+                bottom: 90,
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "#fff",
+                border: `1px solid ${C.border}`,
+                borderRadius: 20,
+                padding: "7px 16px",
+                fontSize: 13,
+                color: C.blueDark,
+                fontWeight: 500,
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(60,64,67,0.2)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              최신 메시지 ↓
+            </div>
+          )}
 
-            {showJumpDown && (
-              <div
-                onClick={() => {
-                  isNearBottomRef.current = true;
-                  scrollToBottom(true);
-                }}
-                style={{
-                  position: "absolute",
-                  bottom: 90,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "#fff",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 20,
-                  padding: "7px 16px",
-                  fontSize: 13,
-                  color: C.blueDark,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  boxShadow: "0 2px 8px rgba(60,64,67,0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                최신 메시지 ↓
-              </div>
-            )}
+          {connError && <div style={{ color: C.red, fontSize: 12, padding: "0 24px 6px" }}>{connError}</div>}
 
-            {connError && <div style={{ color: C.red, fontSize: 12, padding: "0 24px 6px" }}>{connError}</div>}
-
-            <MessageInput
-              channelName={channelName}
-              input={input}
-              onInputChange={setInput}
-              onSend={sendMessage}
-              replyingTo={replyingTo}
-              onCancelReply={() => setReplyingTo(null)}
-              displayName={displayName}
-              pendingImage={pendingImage}
-              onPickImage={() => fileInputRef.current?.click()}
-              onCancelImage={cancelPendingImage}
-              pendingSpoiler={pendingSpoiler}
-              onToggleSpoiler={() => setPendingSpoiler((v) => !v)}
-              uploading={uploading}
-              fileInputRef={fileInputRef}
-              onFileSelected={handleFileSelected}
-            />
-          </div>
-        </>
+          <MessageInput
+            channelName={channelName}
+            input={input}
+            onInputChange={setInput}
+            onSend={sendMessage}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            displayName={displayName}
+            pendingImage={pendingImage}
+            onPickImage={() => fileInputRef.current?.click()}
+            onCancelImage={cancelPendingImage}
+            pendingSpoiler={pendingSpoiler}
+            onToggleSpoiler={() => setPendingSpoiler((v) => !v)}
+            uploading={uploading}
+            fileInputRef={fileInputRef}
+            onFileSelected={handleFileSelected}
+          />
+        </div>
       )}
 
       {currentView === "docs" && (
