@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { C, Avatar } from "./helpers.jsx";
+import { IconHome, IconShield, IconGear, IconGrid, IconDoc, IconGame, IconEdit } from "./icons.jsx";
 
-/* ============================================================
-   Google Chat 로고 (헤더용, 초록 말풍선)
-   ============================================================ */
 function ChatLogo() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
@@ -17,54 +15,14 @@ function ChatLogo() {
 
 function SpaceIcon({ children, bg }) {
   return (
-    <div
-      style={{
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        background: bg || "#e8eaed",
-        color: "#5f6368",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
+    <div style={{ width: 32, height: 32, borderRadius: 8, background: bg || "#e8eaed", color: "#5f6368", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
       {children}
     </div>
   );
 }
 
-const GridDots = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <rect x="1" y="1" width="6" height="6" rx="1.5" />
-    <rect x="9" y="1" width="6" height="6" rx="1.5" />
-    <rect x="1" y="9" width="6" height="6" rx="1.5" />
-    <rect x="9" y="9" width="6" height="6" rx="1.5" />
-  </svg>
-);
-
-const DocIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="8" y1="13" x2="16" y2="13" />
-    <line x1="8" y1="17" x2="13" y2="17" />
-  </svg>
-);
-
-const GameIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="6" width="20" height="12" rx="3" />
-    <line x1="7" y1="12" x2="11" y2="12" />
-    <line x1="9" y1="10" x2="9" y2="14" />
-    <circle cx="16" cy="11" r="1" fill="currentColor" />
-    <circle cx="18.5" cy="13.5" r="1" fill="currentColor" />
-  </svg>
-);
-
 /* ============================================================
-   통합 사이드바 (사진 구조: 헤더 / 카드버튼 / 사용자목록 / 스페이스 / 내프로필)
+   통합 사이드바
    ============================================================ */
 export function ChannelSidebar({
   serverName,
@@ -74,6 +32,7 @@ export function ChannelSidebar({
   currentView,
   onSelectChannel,
   onChangeView,
+  onRenameChannel,
   onlineUsers,
   currentUser,
   displayName,
@@ -85,10 +44,23 @@ export function ChannelSidebar({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(serverName);
+  const [editingChannelId, setEditingChannelId] = useState(null);
+  const [channelDraft, setChannelDraft] = useState("");
 
   function commitName() {
     setEditing(false);
     if (draft.trim() && draft.trim() !== serverName) onEditServerName(draft.trim());
+  }
+
+  function startRenameChannel(c) {
+    setEditingChannelId(c.id);
+    setChannelDraft(c.name);
+  }
+
+  function commitChannelRename(c) {
+    setEditingChannelId(null);
+    const trimmed = channelDraft.trim();
+    if (trimmed && trimmed !== c.name) onRenameChannel?.(c.id, trimmed);
   }
 
   const online = onlineUsers.filter((u) => u.online);
@@ -123,7 +95,7 @@ export function ChannelSidebar({
         )}
       </div>
 
-      {/* 알약 모양 카드 버튼 (사진의 "+새 채팅" 자리) */}
+      {/* 카드 버튼 */}
       <div style={{ padding: "6px 14px 14px" }}>
         <button
           onClick={isAdmin ? onOpenAdmin : onOpenSettings}
@@ -145,19 +117,18 @@ export function ChannelSidebar({
             fontFamily: C.font,
           }}
         >
-          <span style={{ fontSize: 16 }}>{isAdmin ? "🛡️" : "⚙️"}</span>
+          <span style={{ color: C.textSub, display: "flex" }}>{isAdmin ? <IconShield width={16} height={16} /> : <IconGear width={16} height={16} />}</span>
           {isAdmin ? "관리자 패널" : "설정"}
         </button>
       </div>
 
-      {/* 바로가기 (사진 구조: 홈/멘션/별표표시함에 해당하는 자리) */}
+      {/* 바로가기 — 홈은 실제로 홈 화면으로 이동 */}
       <div style={{ padding: "2px 8px 4px" }}>
         <SectionHeader label="바로가기" />
-        <ShortcutRow icon="🏠" label="홈" active onClick={() => onChangeView("chat")} />
+        <ShortcutRow icon={<IconHome width={17} height={17} />} label="홈" active={currentView === "home"} onClick={() => onChangeView("home")} />
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px" }}>
-        {/* 온라인/오프라인 사용자 목록 (사진의 "채팅 메시지" DM 목록에 해당) */}
         {onlineUsers.length > 0 && (
           <>
             <SectionHeader label="채팅 메시지" />
@@ -171,18 +142,28 @@ export function ChannelSidebar({
           </>
         )}
 
-        {/* 스페이스 (채널 + 문서 + 게임) */}
+        {/* 스페이스 — 더블클릭하면 이름을 그 자리에서 바꿀 수 있음 */}
         <SectionHeader label="스페이스" />
 
         {channels.map((c) => {
           const active = currentView === "chat" && activeChannel === c.id;
+          const isEditing = editingChannelId === c.id;
           return (
             <SpaceRow
               key={c.id}
               active={active}
+              editing={isEditing}
+              editValue={channelDraft}
+              onEditChange={setChannelDraft}
+              onEditCommit={() => commitChannelRename(c)}
+              onEditCancel={() => setEditingChannelId(null)}
+              onDoubleClick={() => startRenameChannel(c)}
+              onRenameClick={() => startRenameChannel(c)}
               icon={
                 <SpaceIcon>
-                  <GridDots />
+                  <span style={{ color: "#5f6368" }}>
+                    <IconGrid />
+                  </span>
                 </SpaceIcon>
               }
               label={c.name}
@@ -198,7 +179,7 @@ export function ChannelSidebar({
           icon={
             <SpaceIcon bg="#e3f2fd">
               <span style={{ color: "#1967d2" }}>
-                <DocIcon />
+                <IconDoc width={16} height={16} />
               </span>
             </SpaceIcon>
           }
@@ -210,7 +191,7 @@ export function ChannelSidebar({
           icon={
             <SpaceIcon bg="#fce8e6">
               <span style={{ color: "#d93025" }}>
-                <GameIcon />
+                <IconGame width={16} height={16} />
               </span>
             </SpaceIcon>
           }
@@ -231,34 +212,23 @@ export function ChannelSidebar({
           <div style={{ fontSize: 13.5, fontWeight: 500, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName(currentUser)}</div>
           <div style={{ fontSize: 11.5, color: C.green }}>온라인{isAdmin ? " · 관리자" : ""}</div>
         </div>
-        <span style={{ marginLeft: "auto", color: C.textFaint, fontSize: 16 }}>⚙</span>
+        <span style={{ marginLeft: "auto", color: C.textFaint, display: "flex" }}>
+          <IconGear width={16} height={16} />
+        </span>
       </div>
     </div>
   );
 }
 
 function SectionHeader({ label }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4, color: C.textSub, fontSize: 13, fontWeight: 500, padding: "10px 10px 4px" }}>
-      <span style={{ fontSize: 10, color: C.textFaint }}>▾</span>
-      {label}
-    </div>
-  );
+  return <div style={{ color: C.textSub, fontSize: 13, fontWeight: 500, padding: "10px 10px 4px" }}>{label}</div>;
 }
 
 function ShortcutRow({ icon, label, active, onClick }) {
   return (
     <div
       onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: "8px 10px",
-        borderRadius: 8,
-        cursor: "pointer",
-        background: active ? C.bgActive : "transparent",
-      }}
+      style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 10px", borderRadius: 8, cursor: "pointer", background: active ? C.bgActive : "transparent" }}
       onMouseEnter={(e) => {
         if (!active) e.currentTarget.style.background = C.bgHover;
       }}
@@ -266,26 +236,61 @@ function ShortcutRow({ icon, label, active, onClick }) {
         if (!active) e.currentTarget.style.background = "transparent";
       }}
     >
-      <span style={{ fontSize: 17, width: 20, textAlign: "center" }}>{icon}</span>
+      <span style={{ width: 20, display: "flex", justifyContent: "center", color: active ? C.blueDark : C.textSub }}>{icon}</span>
       <span style={{ fontSize: 14, color: active ? C.blueDark : C.text, fontWeight: active ? 600 : 400 }}>{label}</span>
     </div>
   );
 }
 
-function SpaceRow({ active, icon, label, onClick }) {
+function SpaceRow({ active, icon, label, onClick, editing, editValue, onEditChange, onEditCommit, onEditCancel, onDoubleClick, onRenameClick }) {
+  const [hover, setHover] = useState(false);
   return (
     <div
-      onClick={onClick}
-      style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, marginBottom: 1, cursor: "pointer", background: active ? C.bgActive : "transparent" }}
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = C.bgHover;
+      onClick={editing ? undefined : onClick}
+      onDoubleClick={onDoubleClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={onDoubleClick ? "더블클릭하면 이름을 바꿀 수 있어요" : undefined}
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 10px", borderRadius: 8, marginBottom: 1, cursor: editing ? "default" : "pointer", background: active ? C.bgActive : "transparent" }}
+      onMouseEnterCapture={(e) => {
+        if (!active && !editing) e.currentTarget.style.background = C.bgHover;
       }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = "transparent";
+      onMouseLeaveCapture={(e) => {
+        if (!active && !editing) e.currentTarget.style.background = "transparent";
       }}
     >
       {icon}
-      <span style={{ fontSize: 14, color: active ? C.blueDark : C.text, fontWeight: active ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      {editing ? (
+        <input
+          autoFocus
+          value={editValue}
+          onChange={(e) => onEditChange(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={onEditCommit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onEditCommit();
+            if (e.key === "Escape") onEditCancel();
+          }}
+          maxLength={24}
+          style={{ flex: 1, fontSize: 14, border: "none", outline: `1px solid ${C.blue}`, borderRadius: 4, padding: "2px 6px", fontFamily: C.font, background: "#fff" }}
+        />
+      ) : (
+        <>
+          <span style={{ flex: 1, fontSize: 14, color: active ? C.blueDark : C.text, fontWeight: active ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+          {onRenameClick && hover && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRenameClick();
+              }}
+              title="이름 바꾸기"
+              style={{ background: "none", border: "none", cursor: "pointer", color: C.textFaint, padding: 2, display: "flex", flexShrink: 0 }}
+            >
+              <IconEdit width={13} height={13} />
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
