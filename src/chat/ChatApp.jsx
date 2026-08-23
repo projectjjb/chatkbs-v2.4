@@ -7,6 +7,7 @@ import { MessageList, MessageInput } from "./Messages.jsx";
 import { useTabRevealSpoilers } from "./markdown.jsx";
 import SettingsModal from "./SettingsModal.jsx";
 import AdminPanel from "./AdminPanel.jsx";
+import ProfilePopup from "./ProfilePopup.jsx";
 import { IconBack, IconGrid, IconImage, IconPin } from "./icons.jsx";
 
 /* ============================================================
@@ -73,6 +74,7 @@ export default function ChatApp({ user }) {
 
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [profilePopupUser, setProfilePopupUser] = useState(null); // 클릭된 사용자 원본 이름(name)
   const [showJumpDown, setShowJumpDown] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -138,6 +140,16 @@ export default function ChatApp({ user }) {
       showToast("스페이스 이름이 변경되었습니다");
     } catch (e) {
       showToast("변경하지 못했습니다");
+    }
+  }
+
+  // 드래그로 순서를 바꾼 새 배열을 받아 화면에 즉시 반영하고, sort_order를 DB에 저장
+  async function reorderChannels(reordered) {
+    setChannels(reordered);
+    try {
+      await Promise.all(reordered.map((c, i) => sbUpdate("channels", `id=eq.${c.id}`, { sort_order: i })));
+    } catch (e) {
+      showToast("순서를 저장하지 못했습니다");
     }
   }
 
@@ -243,7 +255,7 @@ export default function ChatApp({ user }) {
     let cancelled = false;
     sbSelect(
       "messages",
-      `channel_id=eq.${activeChannel}&select=id,author,text,image_url,image_spoiler,reactions,created_at,reply_to_id,reply_to_author,reply_to_text&order=created_at.asc`
+      `channel_id=eq.${activeChannel}&select=id,author,text,image_url,image_spoiler,reactions,created_at,reply_to_id,reply_to_author,reply_to_text,deleted&order=created_at.asc`
     )
       .then((rows) => {
         if (cancelled) return;
@@ -344,12 +356,13 @@ export default function ChatApp({ user }) {
 
   async function deleteMessage(msg) {
     if (!window.confirm("이 메시지를 삭제할까요?")) return;
-    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    const before = { ...msg };
+    setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, deleted: true, text: "", image_url: null } : m)));
     try {
-      await sbDelete("messages", `id=eq.${msg.id}`);
+      await sbUpdate("messages", `id=eq.${msg.id}`, { deleted: true, deleted_at: new Date().toISOString(), text: "", image_url: null });
       showToast("메시지가 삭제되었습니다");
     } catch (e) {
-      setMessages((prev) => [...prev, msg].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? before : m)));
       showToast("삭제하지 못했습니다");
     }
   }
@@ -472,6 +485,7 @@ export default function ChatApp({ user }) {
         }}
         onChangeView={setCurrentView}
         onRenameChannel={renameChannel}
+        onReorderChannels={reorderChannels}
         onlineUsers={onlineUsers}
         currentUser={currentUser}
         displayName={displayName}
@@ -503,6 +517,7 @@ export default function ChatApp({ user }) {
             onDelete={deleteMessage}
             onReply={setReplyingTo}
             onToggleReaction={toggleReaction}
+            onOpenProfile={setProfilePopupUser}
             mentionNames={allUserNames}
             scrollRef={scrollRef}
             onScroll={handleScroll}
@@ -597,6 +612,20 @@ export default function ChatApp({ user }) {
       )}
 
       {showAdmin && <AdminPanel currentUserId={user.id} onClose={() => setShowAdmin(false)} />}
+
+      {profilePopupUser && (
+        <ProfilePopup
+          name={profilePopupUser}
+          displayName={displayName(profilePopupUser)}
+          avatarUrl={userAvatar(profilePopupUser)}
+          color={userColor(profilePopupUser)}
+          online={isUserOnline(profilePopupUser)}
+          lastSeen={profileMap[profilePopupUser]?.last_seen}
+          isAdmin={false}
+          onClose={() => setProfilePopupUser(null)}
+          onMention={profilePopupUser === currentUser ? null : (n) => setInput((prev) => (prev ? prev + ` @${n} ` : `@${n} `))}
+        />
+      )}
 
       {toast && (
         <div
