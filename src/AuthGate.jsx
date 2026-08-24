@@ -194,7 +194,7 @@ function GoogleSearch({ onSignupOpen, onLogin, onFail }) {
               width: 32,
               height: 32,
               borderRadius: "50%",
-              background: "#c5c9cd",
+              background: "#dfe1e5",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -220,7 +220,7 @@ function GoogleSearch({ onSignupOpen, onLogin, onFail }) {
         }}
       >
         <div style={{ marginBottom: 26 }}>
-          <GoogleLogo size={92} />
+          <GoogleLogo size={100} />
         </div>
 
         <form onSubmit={submit} style={{ width: "100%", maxWidth: 584 }}>
@@ -231,15 +231,19 @@ function GoogleSearch({ onSignupOpen, onLogin, onFail }) {
               height: 46,
               border: "1px solid #dfe1e5",
               borderRadius: 24,
-              padding: "0 8px 0 14px",
+              padding: "0 8px 0 20px",
               boxShadow: focused ? "0 1px 6px rgba(32,33,36,.28)" : "none",
               transition: "box-shadow 0.2s, border-color 0.2s",
               borderColor: focused ? "transparent" : "#dfe1e5",
+              gap: 12,
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#9aa0a6" style={{ marginRight: 12 }}>
-              <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+            {/* + 아이콘 (사진과 이미지로 검색) */}
+            <svg width="20" height="20" viewBox="0 0 24 24" stroke="#5f6368" strokeWidth="2" fill="none" strokeLinecap="round" style={{ flexShrink: 0 }}>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
+
             <input
               ref={inputRef}
               value={q}
@@ -254,18 +258,58 @@ function GoogleSearch({ onSignupOpen, onLogin, onFail }) {
                 fontFamily: "arial, sans-serif",
                 color: "#202124",
                 background: "transparent",
+                minWidth: 0,
               }}
             />
-            <div style={{ display: "flex", alignItems: "center", gap: 14, paddingRight: 8 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24">
+
+            <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+              {/* 화상 키보드 */}
+              <div style={{ width: 22, height: 22, borderRadius: 4, background: "#202124", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                  <rect x="2" y="6" width="20" height="12" rx="2" />
+                  <line x1="6" y1="10" x2="6" y2="10" />
+                  <line x1="10" y1="10" x2="10" y2="10" />
+                  <line x1="14" y1="10" x2="14" y2="10" />
+                  <line x1="18" y1="10" x2="18" y2="10" />
+                  <line x1="8" y1="14" x2="16" y2="14" />
+                </svg>
+              </div>
+
+              {/* 마이크 (구글 4색) */}
+              <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#4285f4" d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3z" />
                 <path fill="#34a853" d="M11 18.92h2V22h-2z" />
                 <path fill="#fbbc05" d="M7.05 13.9c-.5-.9-.8-1.9-.8-2.9H4.5c0 1.4.4 2.8 1.1 4l1.45-1.1z" />
                 <path fill="#ea4335" d="M12 16.5c-1.2 0-2.3-.4-3.2-1.1l-1.45 1.1A6.9 6.9 0 0 0 12 18.5c3.5 0 6.4-2.6 6.4-6.5h-1.75c0 2.6-2 4.5-4.65 4.5z" />
               </svg>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="#4285f4">
-                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+
+              {/* 카메라(이미지로 검색) */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
               </svg>
+
+              {/* AI 모드 알약 */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#f8f9fa",
+                  borderRadius: 20,
+                  padding: "6px 12px",
+                  fontSize: 13,
+                  color: "#3c4043",
+                  fontFamily: "'Google Sans', arial, sans-serif",
+                  cursor: "pointer",
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6L12 3z" fill="#4285f4" />
+                  <circle cx="19" cy="5" r="1.4" fill="#ea4335" />
+                </svg>
+                AI 모드
+              </div>
             </div>
           </div>
 
